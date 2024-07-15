@@ -215,8 +215,8 @@ func (h *Handler) handleRecord(record *service.Record) {
 		h.handleHeader(record)
 	case *service.Record_History:
 		h.handleHistory(x.History)
-	case *service.Record_LinkArtifact:
-		h.handleLinkArtifact(record)
+	case *service.Record_NoopLinkArtifact:
+		// Removed but kept to avoid panics
 	case *service.Record_Metric:
 		h.handleMetric(record, x.Metric)
 	case *service.Record_Output:
@@ -300,6 +300,8 @@ func (h *Handler) handleRequest(record *service.Record) {
 		h.handleRequestStopStatus(record)
 	case *service.Request_LogArtifact:
 		h.handleRequestLogArtifact(record)
+	case *service.Request_LinkArtifact:
+		h.handleRequestLinkArtifact(record)
 	case *service.Request_DownloadArtifact:
 		h.handleRequestDownloadArtifact(record)
 	case *service.Request_Attach:
@@ -494,7 +496,7 @@ func (h *Handler) handleRequestDownloadArtifact(record *service.Record) {
 	h.fwdRecord(record)
 }
 
-func (h *Handler) handleLinkArtifact(record *service.Record) {
+func (h *Handler) handleRequestLinkArtifact(record *service.Record) {
 	h.fwdRecord(record)
 }
 
@@ -1324,15 +1326,13 @@ func (h *Handler) imputeStepMetric(item *service.HistoryItem) *service.HistoryIt
 	}
 
 	// check if step metric is already in history
-	// TODO: avoid using the Tree method
-	if _, ok := h.runHistory.Tree()[key]; ok {
+	if h.runHistory.Contains(key) {
 		return nil
 	}
 
-	// TODO: avoid using the tree representation of the summary
 	// TODO: avoid using json marshalling
 	// we use the summary value of the metric as the algorithm for imputing the step metric
-	if value, ok := h.runSummary.Tree()[key]; ok {
+	if value, ok := h.runSummary.Get(key); ok {
 		v, err := json.Marshal(value)
 		if err != nil {
 			h.logger.CaptureError(
