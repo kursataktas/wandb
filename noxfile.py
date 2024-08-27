@@ -702,6 +702,7 @@ def mypy_report(session: nox.Session) -> None:
         "pycobertura",
         "lxml",
         "pandas-stubs",
+        "pydantic",  # for pydantic-mypy plugin: https://docs.pydantic.dev/latest/integrations/mypy/
         "types-click",
         "types-jsonschema",
         "types-openpyxl",
