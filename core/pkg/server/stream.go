@@ -204,7 +204,7 @@ func NewStream(
 		HandlerParams{
 			Logger:            s.logger,
 			Settings:          s.settings.Proto,
-			FwdChan:           make(chan *spb.Record, BufferSize),
+			FwdChan:           make(chan runwork.Work, BufferSize),
 			OutChan:           make(chan *spb.Result, BufferSize),
 			SystemMonitor:     monitor.New(s.logger, s.settings.Proto, s.runWork),
 			TBHandler:         tbHandler,
@@ -218,7 +218,7 @@ func NewStream(
 		WriterParams{
 			Logger:   s.logger,
 			Settings: s.settings.Proto,
-			FwdChan:  make(chan *spb.Record, BufferSize),
+			FwdChan:  make(chan runwork.Work, BufferSize),
 		},
 	)
 
@@ -244,6 +244,7 @@ func NewStream(
 			Backend:             backendOrNil,
 			FileStream:          fileStreamOrNil,
 			FileTransferManager: fileTransferManagerOrNil,
+			FileTransferStats:   fileTransferStats,
 			FileWatcher:         fileWatcher,
 			RunfilesUploader:    runfilesUploaderOrNil,
 			TBHandler:           tbHandler,
@@ -309,7 +310,7 @@ func (s *Stream) Start() {
 // HandleRecord handles the given record by sending it to the stream's handler.
 func (s *Stream) HandleRecord(rec *spb.Record) {
 	s.logger.Debug("handling record", "record", rec)
-	s.runWork.AddRecord(rec)
+	s.runWork.AddWork(runwork.WorkFromRecord(rec))
 }
 
 // Close waits for all run messages to be fully processed.

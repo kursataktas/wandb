@@ -12,6 +12,7 @@ For reference documentation, see https://docs.wandb.com/ref/python.
 __all__ = (
     "__version__",
     "init",
+    "finish",
     "setup",
     "login",
     "save",
@@ -34,6 +35,8 @@ __all__ = (
     "Molecule",
     "Histogram",
     "ArtifactTTL",
+    "log_artifact",
+    "use_artifact",
     "log_model",
     "use_model",
     "link_model",
@@ -76,7 +79,7 @@ from wandb.sdk.wandb_run import Run
 from wandb.sdk.wandb_setup import _WandbSetup
 from wandb.wandb_controller import _WandbController
 
-__version__: str = "0.17.9.dev1"
+__version__: str = "0.17.10.dev1"
 
 run: Optional[Run] = None
 config = wandb_config.Config
@@ -127,6 +130,10 @@ def init(
     settings: Union[Settings, Dict[str, Any], None] = None,
 ) -> Run:
     """<sdk/wandb_init.py::init>"""
+    ...
+
+def finish(exit_code: Optional[int] = None, quiet: Optional[bool] = None) -> None:
+    """<sdk/wandb_run.py::finish>"""
     ...
 
 def login(
@@ -195,6 +202,24 @@ def define_metric(
     overwrite: Optional[bool] = None,
 ) -> wandb_metric.Metric:
     """<sdk/wandb_run.py::Run::define_metric>"""
+    ...
+
+def log_artifact(
+    artifact_or_path: Union[Artifact, StrPath],
+    name: Optional[str] = None,
+    type: Optional[str] = None,
+    aliases: Optional[List[str]] = None,
+) -> Artifact:
+    """<sdk/wandb_run.py::Run::log_artifact>"""
+    ...
+
+def use_artifact(
+    artifact_or_name: Union[str, Artifact],
+    type: Optional[str] = None,
+    aliases: Optional[List[str]] = None,
+    use_as: Optional[str] = None,
+) -> Artifact:
+    """<sdk/wandb_run.py::Run::use_artifact>"""
     ...
 
 def log_model(

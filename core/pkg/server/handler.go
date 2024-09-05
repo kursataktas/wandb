@@ -19,6 +19,7 @@ import (
 	"github.com/wandb/wandb/core/internal/runhistory"
 	"github.com/wandb/wandb/core/internal/runmetric"
 	"github.com/wandb/wandb/core/internal/runsummary"
+	"github.com/wandb/wandb/core/internal/runwork"
 	"github.com/wandb/wandb/core/internal/tensorboard"
 	"github.com/wandb/wandb/core/internal/timer"
 	"github.com/wandb/wandb/core/internal/version"
@@ -38,7 +39,7 @@ const (
 
 type HandlerParams struct {
 	Settings          *spb.Settings
-	FwdChan           chan *spb.Record
+	FwdChan           chan runwork.Work
 	OutChan           chan *spb.Result
 	Logger            *observability.CoreLogger
 	Mailbox           *mailbox.Mailbox
@@ -73,7 +74,7 @@ type Handler struct {
 	logger *observability.CoreLogger
 
 	// fwdChan is the channel for forwarding messages to the next component
-	fwdChan chan *spb.Record
+	fwdChan chan runwork.Work
 
 	// outChan is the channel for sending results to the client
 	outChan chan *spb.Result
@@ -155,39 +156,21 @@ func NewHandler(
 	}
 }
 
-// Do processes all records on the input channel.
+// Do processes all work on the input channel.
 //
 //gocyclo:ignore
-func (h *Handler) Do(inChan <-chan *spb.Record) {
+func (h *Handler) Do(allWork <-chan runwork.Work) {
 	defer h.logger.Reraise()
 	h.logger.Info("handler: started", "stream_id", h.settings.RunId)
-	for record := range inChan {
-		h.logger.Debug("handle: got a message", "record_type", record.RecordType, "stream_id", h.settings.RunId)
+	for work := range allWork {
+		h.logger.Debug(
+			"handler: got work",
+			"work", work,
+			"stream_id", h.settings.RunId,
+		)
 
-		h.handleRecord(record)
-
-		switch record.RecordType.(type) {
-		default:
-			h.fwdRecord(record)
-
-		// Exceptions to the default of forwarding:
-		case *spb.Record_Exit:
-			// The Runtime field is updated on the record before forwarding,
-			// and it is forwarded with AlwaysSend and if syncing Local.
-		case *spb.Record_Final:
-			// Deprecated.
-		case *spb.Record_Footer:
-			// Deprecated.
-		case *spb.Record_Header:
-			// The record's VersionInfo gets modified before forwarding.
-		case *spb.Record_NoopLinkArtifact:
-			// Deprecated.
-		case *spb.Record_Tbrecord:
-			// Never forwarded.
-		case *spb.Record_Request:
-			// Getting refactored; forwarded by handleRequest for now.
-		case *spb.Record_Run:
-			// Forwarded with AlwaysSend.
+		if work.Accept(h.handleRecord) {
+			h.fwdWork(work)
 		}
 	}
 	h.Close()
@@ -209,12 +192,18 @@ func (h *Handler) respond(record *spb.Record, response *spb.Response) {
 	h.outChan <- result
 }
 
+// fwdWork passes work to the Writer and Sender.
+func (h *Handler) fwdWork(work runwork.Work) {
+	h.fwdChan <- work
+}
+
 // fwdRecord forwards a record to the next component
 func (h *Handler) fwdRecord(record *spb.Record) {
 	if record == nil {
 		return
 	}
-	h.fwdChan <- record
+
+	h.fwdWork(runwork.WorkRecord{Record: record})
 }
 
 // fwdRecordWithControl forwards a record to the next component with control options
@@ -419,38 +408,6 @@ func (h *Handler) handleMetric(record *spb.Record) {
 }
 
 func (h *Handler) handleRequestDefer(record *spb.Record, request *spb.DeferRequest) {
-	switch request.State {
-	case spb.DeferRequest_BEGIN:
-	case spb.DeferRequest_FLUSH_RUN:
-
-	case spb.DeferRequest_FLUSH_STATS:
-		// stop the system monitor to ensure that we don't send any more system metrics
-		// after the run has exited
-		h.systemMonitor.Finish()
-
-	case spb.DeferRequest_FLUSH_PARTIAL_HISTORY:
-		if h.settings.GetXShared().GetValue() {
-			h.flushPartialHistory(false, 0)
-		} else {
-			h.flushPartialHistory(true, h.partialHistoryStep+1)
-		}
-
-	case spb.DeferRequest_FLUSH_TB:
-	case spb.DeferRequest_FLUSH_SUM:
-	case spb.DeferRequest_FLUSH_DEBOUNCER:
-	case spb.DeferRequest_FLUSH_OUTPUT:
-	case spb.DeferRequest_FLUSH_JOB:
-	case spb.DeferRequest_FLUSH_DIR:
-	case spb.DeferRequest_FLUSH_FP:
-	case spb.DeferRequest_JOIN_FP:
-	case spb.DeferRequest_FLUSH_FS:
-	case spb.DeferRequest_FLUSH_FINAL:
-	case spb.DeferRequest_END:
-		h.fileTransferStats.SetDone()
-	default:
-		h.logger.CaptureError(
-			fmt.Errorf("handleDefer: unknown defer state %v", request.State))
-	}
 	// Need to clone the record to avoid race condition with the writer
 	record = proto.Clone(record).(*spb.Record)
 	h.fwdRecordWithControl(record,
@@ -802,6 +759,17 @@ func (h *Handler) handleExit(record *spb.Record, exit *spb.RunExitRecord) {
 
 	if !h.settings.GetXSync().GetValue() {
 		h.updateRunTiming()
+	}
+
+	// Stop generating system statistics events.
+	h.systemMonitor.Finish()
+
+	// Flush any history data---any further history records must
+	// be configured to flush.
+	if h.settings.GetXShared().GetValue() {
+		h.flushPartialHistory(false, 0)
+	} else {
+		h.flushPartialHistory(true, h.partialHistoryStep+1)
 	}
 
 	// send the exit record
