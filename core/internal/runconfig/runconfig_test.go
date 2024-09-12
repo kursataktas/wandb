@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/wandb/wandb/core/internal/corelib"
 	"github.com/wandb/wandb/core/internal/runconfig"
-	"github.com/wandb/wandb/core/pkg/service"
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
 
 func TestConfigUpdate(t *testing.T) {
@@ -18,8 +18,8 @@ func TestConfigUpdate(t *testing.T) {
 	})
 
 	runConfig.ApplyChangeRecord(
-		&service.ConfigRecord{
-			Update: []*service.ConfigItem{
+		&spb.ConfigRecord{
+			Update: []*spb.ConfigItem{
 				{
 					Key:       "a",
 					ValueJson: "1",
@@ -34,7 +34,7 @@ func TestConfigUpdate(t *testing.T) {
 
 	assert.Equal(t,
 		map[string]any{
-			"a": 1.0,
+			"a": int64(1),
 			"b": map[string]any{
 				"c": "text",
 				"d": 123.0,
@@ -54,8 +54,8 @@ func TestConfigRemove(t *testing.T) {
 	})
 
 	runConfig.ApplyChangeRecord(
-		&service.ConfigRecord{
-			Remove: []*service.ConfigItem{
+		&spb.ConfigRecord{
+			Remove: []*spb.ConfigItem{
 				{Key: "a"},
 				{NestedKey: []string{"b", "c"}},
 			},
@@ -96,18 +96,18 @@ func TestConfigSerialize(t *testing.T) {
 
 func TestAddTelemetryAndMetrics(t *testing.T) {
 	runConfig := runconfig.New()
-	telemetry := &service.TelemetryRecord{}
+	telemetry := &spb.TelemetryRecord{}
 
 	runConfig.AddTelemetryAndMetrics(
 		telemetry,
-		[]map[int]interface{}{},
+		[]map[string]any{},
 	)
 
 	assert.Equal(t,
 		map[string]any{
 			"_wandb": map[string]any{
 				"t": corelib.ProtoEncodeToDict(telemetry),
-				"m": []map[int]interface{}{},
+				"m": []map[string]any{},
 			},
 		},
 		runConfig.CloneTree(),

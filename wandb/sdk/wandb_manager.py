@@ -13,7 +13,6 @@ import wandb
 from wandb import env, trigger
 from wandb.errors import Error
 from wandb.sdk.lib.exit_hooks import ExitHooks
-from wandb.sdk.lib.import_hooks import unregister_all_post_import_hooks
 
 if TYPE_CHECKING:
     from wandb.proto import wandb_settings_pb2
@@ -114,17 +113,21 @@ class _Manager:
 
         try:
             svc_iface._svc_connect(port=port)
+
         except ConnectionRefusedError as e:
             if not psutil.pid_exists(self._token.pid):
                 message = (
-                    "Connection to wandb service failed "
-                    "since the process is not available. "
+                    "Connection to wandb service failed"
+                    " because the process is not available."
                 )
             else:
-                message = f"Connection to wandb service failed: {e}. "
-            raise ManagerConnectionRefusedError(message)
+                message = "Connection to wandb service failed."
+            raise ManagerConnectionRefusedError(message) from e
+
         except Exception as e:
-            raise ManagerConnectionError(f"Connection to wandb service failed: {e}")
+            raise ManagerConnectionError(
+                "Connection to wandb service failed.",
+            ) from e
 
     def __init__(self, settings: "Settings") -> None:
         """Connects to the internal service, starting it if necessary."""
@@ -159,8 +162,6 @@ class _Manager:
         This sends a teardown record to the process. An exception is raised if
         the process has already been shut down.
         """
-        unregister_all_post_import_hooks()
-
         if self._atexit_lambda:
             atexit.unregister(self._atexit_lambda)
             self._atexit_lambda = None

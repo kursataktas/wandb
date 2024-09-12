@@ -12,76 +12,13 @@
 <a href="https://colab.research.google.com/github/wandb/examples/blob/master/colabs/intro/Intro_to_Weights_%26_Biases.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>
 </p>
 
-
-# Documentation
-
-<p align='center'>
-<a target="_blank" href="https://docs.wandb.ai/guides/track?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/experiments-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/experiments-light.svg" width="14.0%">
-  <img alt="Weights and Biases Experiments" src="">
-</picture>
-</a>
-<a target="_blank" href="https://docs.wandb.ai/guides/reports?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/reports-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/reports-light.svg" width="14.0%">
-  <img alt="Weights and Biases Reports" src="">
-</picture>
-</a>
-<a target="_blank" href="https://docs.wandb.ai/guides/artifacts?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/artifacts-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/artifacts-light.svg" width="14.0%">
-  <img alt="Weights and Biases Artifacts" src="">
-</picture>
-</a>
-<a target="_blank" href="https://docs.wandb.ai/guides/tables?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/tables-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/tables-light.svg" width="14.0%">
-  <img alt="Weights and Biases Tables" src="">
-</picture>
-</a>
-<a target="_blank" href="https://docs.wandb.ai/guides/sweeps?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/sweeps-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/sweeps-light.svg" width="14.0%">
-  <img alt="Weights and Biases Sweeps" src="">
-</picture>
-</a>
-<a target="_blank" href="https://docs.wandb.ai/guides/launch?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/launch-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/launch-light.svg" width="14.0%">
-  <img alt="Weights and Biases Launch" src="">
-</picture>
-</a>
-<a target="_blank" href="https://docs.wandb.ai/guides/model_registry?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/model-registry-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/model-registry-light.svg" width="14.0%">
-  <img alt="Weights and Biases Model Management" src="">
-</picture>
-</a>
-<a target="_blank" href="https://docs.wandb.ai/guides/artifacts/project-scoped-automations?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=readme">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/Product_Icons_dark_background/automations-dark.svg" width="14.0%">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/Product_Icons_light/automations-light.svg" width="14.0%">
-  <img alt="Weights and Biases Prompts" src="">
-</picture>
-</p>
-
-See the [W&B Developer Guide](https://docs.wandb.ai/?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=documentation) and [API Reference Guide](https://docs.wandb.ai/ref?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=documentation) for a full technical description of the W&B platform.
-
 # `wandb-core`: A new backend for the W&B SDK
 
 ## Introduction
 
-`wandb-core` is a new and improved backend for the W&B SDK that is more performant, versatile, and robust.
+`wandb-core` is a new and improved backend for the W&B SDK that is more performant, versatile, and robust. `wandb-core` is enabled by default with `wandb>=0.18.0`
 
-**Upgrade now and experience:**
+** `wandb-core` enables:**
 
 * 🚀 **Logging performance:** Experience up to 88% performance improvements when logging with multiple processes.
 * 🤏 **Reduced resource consumption:** Lower memory footprint allows you to run more experiments on your machines.
@@ -91,55 +28,6 @@ See the [W&B Developer Guide](https://docs.wandb.ai/?utm_source=github&utm_mediu
 * 🌐 **Faster offline sync:** Keep your long-running experiments synced effortlessly with improved offline speeds.
 
 See our [benchmark analysis](https://github.com/wandb/wandb/blob/main/tools/bench/bench.md) for more information on performance improvements.
-
-## Quickstart
-Get started with wandb-core in four steps:
-
-1. First, sign up for a [free W&B account](https://wandb.ai/login?utm_source=github&utm_medium=code&utm_campaign=wandb&utm_content=quickstart).
-
-2. Second, install the W&B SDK with [pip](https://pip.pypa.io/en/stable/). Navigate to your terminal and type the following command:
-
-```bash
-pip install wandb
-```
-***Note: ensure you have `wandb>=0.17.4`.***
-
-3. Third, log into W&B:
-
-```python
-wandb.login()
-```
-
-4. Use the example code snippet below as a template to integrate W&B to your Python script:
-
-To start using `wandb-core`, add `wandb.require("core")` to your script after importing `wandb`:
-
-```python
-import wandb
-
-# Add requirement for wandb core
-wandb.require("core")
-
-# Start a W&B Run with wandb.init
-run = wandb.init(project="my_first_project")
-
-# Save model inputs and hyperparameters in a wandb.config object
-config = run.config
-config.learning_rate = 0.01
-
-# Model training code here ...
-
-# Log metrics over time to visualize performance with wandb.log
-for i in range(10):
-    run.log({"loss": loss})
-
-run.finish()
-```
-<p align='center'>
-<a href="https://colab.research.google.com/github/wandb/examples/blob/master/colabs/intro/Intro_to_Weights_%26_Biases.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>
-</p>
-
-
 
 ## Contributing
 Your contributions are welcome! Please follow our [contributing guide](https://github.com/wandb/wandb/blob/main/CONTRIBUTING.md) for more details.
@@ -166,71 +54,16 @@ If it is not supported for your platform, you will see an error if you try to st
 
 ### Disabling `wandb-core`
 
-To revert to the old SDK backend, simply remove `wandb.require("core")` from your script.
+If you need to revert to the previous SDK backend while using `wandb < 0.18.0`, you can do so by following one of these steps:
 
-### Feature support status
+**Option 1**: Modify your script Add the following line to your script:
+```
+wandb.require("legacy-service")
+````
+**Option 2**: Set an environment variable Alternatively, set the environment variable WANDB__REQUIRE_LEGACY_SERVICE to TRUE:
 
-<details>
-<summary>Click to expand for feature support status in `wandb-core`</summary>
-
-Status legend:
-- ✅: Available: The feature is relatively stable and ready for use.
-- 🚧: In Development: The feature is available but may be unstable or incomplete.
-- ❌: Not Available: The feature is not yet available.
-
-| Category    | Feature           | Status           |
-|-------------|-------------------|------------------|
-| Experiments |                   |                  |
-|             | `init`            | ✅[^E.1]         |
-|             | `log`             | ✅               |
-|             | `log_artifact`    | ✅               |
-|             | `log_code`        | ✅               |
-|             | `config`          | ✅               |
-|             | `summary`         | ✅               |
-|             | `define_metric`   | ✅[^E.5]         |
-|             | `tags`            | ✅               |
-|             | `notes`           | ✅               |
-|             | `name`            | ✅               |
-|             | `alert`           | ✅               |
-|             | `save`            | ✅               |
-|             | `restore`         | ✅               |
-|             | `mark_preempting` | ✅               |
-|             | resume            | ✅               |
-|             | reinit            | ✅               |
-|             | Media             | ✅               |
-|             | Grouping          | ✅               |
-|             | anonymous mode    | ✅               |
-|             | offline mode      | ✅               |
-|             | disabled mode     | ✅               |
-|             | multiprocessing   | ✅               |
-|             | TensorBoard sync  | 🚧[^E.1]         |
-|             | console logging   | ✅[^E.8]         |
-|             | system metrics    | ✅[^E.9]         |
-|             | system info       | ✅               |
-|             | auto code saving  | ✅               |
-|             | Forking           | ❌               |
-|             | Rewind            | ❌               |
-|             | Settings          | 🚧[^E.12]        |
-| Login       |                   |                  |
-|             | default entity    | ✅               |
-|             | team entity       | ✅               |
-|             | service account   | 🚧               |
-| CLI         |                   |                  |
-|             | `sync`            | ✅[^E.1][^CLI.1] |
-|             | `<other commands>`| 🚧[^CLI.2]       |
-| Artifacts   |                   | ✅               |
-|             | caching           | ✅               |
-|             | partial downloads | ❌               |
-| Sweeps      |                   | ✅               |
-| Launch      |                   | ✅               |
-
-[^E.1]: `sync_tensorboard` uploads `tfevent` files to W&B, so the TensorBoard tab works, but only some types of metrics appear in native W&B charts.
-[^E.5]: Missing full nested key summary support.
-[^E.8]: Only raw console logging is supported.
-[^E.9]: Supported system metrics: CPU, Memory, Disk, Network, NVIDIA GPU, AMD GPU, Apple GPU.
-[^E.12]: Unsupported settings:
-    (`anonymous`, `_flow_control*`, `_stats_open_metrics_endpoints`, ...)
-[^CLI.1]: The command is namespaced under `wandb beta` group.
-[^CLI.2]: The rest of the CLI works, but uses the old backend under the hood for some commands.
-
-<details>
+```
+export WANDB__REQUIRE_LEGACY_SERVICE=TRUE
+```
+**Note:**
+* Starting from version 0.18.0, the `wandb-core` service is the default runtime service. As a result, calling `wandb.require("core")` is unnecessary and has no effect in `wandb>=0.18.0`.
