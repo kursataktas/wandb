@@ -1,10 +1,7 @@
 package filetransfer
 
 import (
-	"fmt"
 	"sync"
-
-	"github.com/wandb/wandb/core/pkg/service"
 
 	"github.com/wandb/wandb/core/pkg/observability"
 )
@@ -19,7 +16,7 @@ const (
 // FileTransferManager uploads and downloads files.
 type FileTransferManager interface {
 	// AddTask schedules a file upload or download operation.
-	AddTask(task *Task)
+	AddTask(task Task)
 
 	// Close waits for all tasks to complete.
 	Close()
@@ -36,9 +33,6 @@ type fileTransferManager struct {
 	// semaphore is the semaphore for limiting concurrency
 	semaphore chan struct{}
 
-	// settings is the settings for the file transfer
-	settings *service.Settings
-
 	// logger is the logger for the file transfer
 	logger *observability.CoreLogger
 
@@ -51,12 +45,6 @@ type FileTransferManagerOption func(fm *fileTransferManager)
 func WithLogger(logger *observability.CoreLogger) FileTransferManagerOption {
 	return func(fm *fileTransferManager) {
 		fm.logger = logger
-	}
-}
-
-func WithSettings(settings *service.Settings) FileTransferManagerOption {
-	return func(fm *fileTransferManager) {
-		fm.settings = settings
 	}
 }
 
@@ -86,8 +74,8 @@ func NewFileTransferManager(opts ...FileTransferManagerOption) FileTransferManag
 	return &fm
 }
 
-func (fm *fileTransferManager) AddTask(task *Task) {
-	fm.logger.Debug("fileTransfer: adding upload task", "path", task.Path, "url", task.Url)
+func (fm *fileTransferManager) AddTask(task Task) {
+	fm.logger.Debug("fileTransferManager: AddTask: adding task", "task", task.String())
 
 	fm.wg.Add(1)
 	go func() {
@@ -95,37 +83,17 @@ func (fm *fileTransferManager) AddTask(task *Task) {
 
 		// Guard by a semaphore to limit number of concurrent uploads.
 		fm.semaphore <- struct{}{}
-		task.Err = fm.transfer(task)
+		err := fm.transfer(task)
+		task.SetError(err)
 		<-fm.semaphore
 
-		if task.Err != nil {
-			fm.logger.CaptureError(
-				fmt.Errorf(
-					"filetransfer: uploader: error uploading to %v: %v",
-					task.Url,
-					task.Err,
-				),
-				"path", task.Path,
-			)
+		if err != nil {
+			fm.logger.CaptureError(err, "task", task.String())
 		}
 
 		// Execute the callback.
-		fm.completeTask(task)
+		task.Complete(fm.fileTransferStats)
 	}()
-}
-
-// completeTask runs the completion callback and updates statistics.
-func (fm *fileTransferManager) completeTask(task *Task) {
-	task.CompletionCallback(task)
-
-	if task.Type == UploadTask {
-		fm.fileTransferStats.UpdateUploadStats(FileUploadInfo{
-			FileKind:      task.FileKind,
-			Path:          task.Path,
-			UploadedBytes: task.Size,
-			TotalBytes:    task.Size,
-		})
-	}
 }
 
 func (fm *fileTransferManager) Close() {
@@ -134,21 +102,6 @@ func (fm *fileTransferManager) Close() {
 }
 
 // Uploads or downloads a file.
-func (fm *fileTransferManager) transfer(task *Task) error {
-	fileTransfer := fm.fileTransfers.GetFileTransferForTask(task)
-	if fileTransfer == nil {
-		return fmt.Errorf("fileTransfer: no transfer for task URL %v", task.Url)
-	}
-
-	var err error
-	switch task.Type {
-	case UploadTask:
-		err = fileTransfer.Upload(task)
-	case DownloadTask:
-		err = fileTransfer.Download(task)
-	default:
-		fm.logger.CaptureFatalAndPanic(
-			fmt.Errorf("fileTransfer: unknown task type: %v", task.Type))
-	}
-	return err
+func (fm *fileTransferManager) transfer(task Task) error {
+	return task.Execute(fm.fileTransfers)
 }

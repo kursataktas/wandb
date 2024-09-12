@@ -16,8 +16,9 @@ from typing import Any, Dict, List, Optional
 import wandb
 import wandb.data_types
 from wandb.sdk.launch.errors import LaunchError
+from wandb.sdk.launch.inputs.schema import META_SCHEMA
 from wandb.sdk.wandb_run import Run
-from wandb.util import get_module, load_json_yaml_dict
+from wandb.util import get_module
 
 from .files import config_path_is_valid, override_file
 
@@ -140,9 +141,9 @@ def _replace_refs_and_allofs(schema: dict, defs: Optional[dict]) -> dict:
     ret: Dict[str, Any] = {}
     if "$ref" in schema and defs:
         # Reference found, replace it with its definition
-        def_key = schema["$ref"].split("#/$defs/")[1]
+        def_key = schema.pop("$ref").split("#/$defs/")[1]
         # Also run recursive replacement in case a ref contains more refs
-        return _replace_refs_and_allofs(defs.pop(def_key), defs)
+        ret = _replace_refs_and_allofs(defs.pop(def_key), defs)
     for key, val in schema.items():
         if isinstance(val, dict):
             # Step into dicts recursively
@@ -177,10 +178,7 @@ def _validate_schema(schema: dict) -> None:
         required="Setting job schema requires the jsonschema package. Please install it with `pip install 'wandb[launch]'`.",
         lazy=False,
     )
-    metaschema = load_json_yaml_dict(
-        os.path.join(os.path.dirname(__file__), "schema.json")
-    )
-    validator = jsonschema.Draft202012Validator(metaschema)
+    validator = jsonschema.Draft202012Validator(META_SCHEMA)
     errs = sorted(validator.iter_errors(schema), key=str)
     if errs:
         wandb.termwarn(f"Schema includes unhandled or invalid configurations:\n{errs}")
