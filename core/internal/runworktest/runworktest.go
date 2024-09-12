@@ -7,15 +7,17 @@ import (
 
 	"github.com/wandb/wandb/core/internal/runwork"
 	"github.com/wandb/wandb/core/pkg/observability"
-	"github.com/wandb/wandb/core/pkg/service"
+
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
 
 // FakeRunWork is a fake of runwork.RunWork.
 type FakeRunWork struct {
 	rw runwork.RunWork
 
+	wg         sync.WaitGroup
 	mu         sync.Mutex
-	allRecords []*service.Record
+	allRecords []*spb.Record
 }
 
 var _ runwork.RunWork = &FakeRunWork{}
@@ -25,38 +27,45 @@ func New() *FakeRunWork {
 
 	go func() {
 		for x := range fake.rw.Chan() {
-			fake.mu.Lock()
-			fake.allRecords = append(fake.allRecords, x)
-			fake.mu.Unlock()
+			if rec, ok := x.(runwork.WorkRecord); ok {
+				fake.mu.Lock()
+				fake.allRecords = append(fake.allRecords, rec.Record)
+				fake.mu.Unlock()
+			}
+			fake.wg.Done()
 		}
 	}()
 
 	return fake
 }
 
-// AllRecords returns all records added via AddRecord.
-func (w *FakeRunWork) AllRecords() []*service.Record {
+// AllRecords returns all records added via AddWork.
+func (w *FakeRunWork) AllRecords() []*spb.Record {
+	w.wg.Wait()
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.allRecords
 }
 
-func (w *FakeRunWork) AddRecord(record *service.Record) {
-	w.rw.AddRecord(record)
+func (w *FakeRunWork) AddWork(work runwork.Work) {
+	w.wg.Add(1)
+	w.rw.AddWork(work)
 }
 
-func (w *FakeRunWork) AddRecordOrCancel(
+func (w *FakeRunWork) AddWorkOrCancel(
 	done <-chan struct{},
-	record *service.Record,
+	work runwork.Work,
 ) {
-	w.rw.AddRecordOrCancel(done, record)
+	w.wg.Add(1)
+	w.rw.AddWorkOrCancel(done, work)
 }
 
 func (w *FakeRunWork) BeforeEndCtx() context.Context {
 	return w.rw.BeforeEndCtx()
 }
 
-func (w *FakeRunWork) Chan() <-chan *service.Record {
+func (w *FakeRunWork) Chan() <-chan runwork.Work {
 	panic("FakeRunWork.Chan() is not implemented")
 }
 

@@ -11,14 +11,49 @@ Please add to the relevant subsections under Unreleased below on every PR where 
 
 ## Unreleased
 
+## [0.18.0] - 2024-09-11
+
+### Added
+
+- Add support for artifact tags, via `Artifact.tags` and `Run.log_artifact()` (@tonyyli-wandb in https://github.com/wandb/wandb/pull/8085)
+
+### Fixed
+
+- Detect the notebook name in VS Code's built-in jupyter server (@dmitryduev in https://github.com/wandb/wandb/pull/8311)
+
+### Changed
+
+- The new "core" backend, previously activated using wandb.require("core"), is now used by default. To revert to the legacy behavior,
+add `wandb.require("legacy-service")` at the beginning of your script. Note: In the upcoming minor release, the option
+to disable this new behavior will be removed (@kptkin in https://github.com/wandb/wandb/pull/7777)
+
+## [0.17.9] - 2024-09-05
+
+### Changed
+
+- Changed the default system metrics sampling interval to 10 seconds without averaging, while allowing custom intervals via `wandb.init(settings=wandb.Settings(_stats_sampling_interval=...))` (@dmitryduev in https://github.com/wandb/wandb/pull/8208)
+
+### Deprecated
+
+- `define_metric(summary='best', goal=...)` is deprecated and soon will be removed, use `define_metric(summary='min')` or `define_metric(summary='min')` instead (@kptkin in https://github.com/wandb/wandb/pull/8219)
+
+## [0.17.8] - 2024-08-28
+
 ### Added
 
 - Capture SM (Streaming Multiprocessor), memory, and graphics clock speed (MHz), (un)corrected error counts, fan speed (%), and encoder utilization for Nvidia GPU devices when using core (@dmitryduev in https://github.com/wandb/wandb/pull/8144)
 - Allow iterating over `wandb.Config` like a dictionary (@fsherry in https://github.com/wandb/wandb/pull/8129)
+- PR curves, images and histograms are supported when using TensorBoard with core enabled (@timoffex in https://github.com/wandb/wandb/pull/8181, https://github.com/wandb/wandb/pull/8188, https://github.com/wandb/wandb/pull/8189)
+- Added `wandb.require("legacy-service")` as the opt-out analog of `wandb.require("core")` (@timoffex in https://github.com/wandb/wandb/pull/8201)
 
 ### Fixed
 
 - Avoid leaving behind wandb-core process if user hits Ctrl+C twice (@timoffex in https://github.com/wandb/wandb/pull/8153)
+- Fix deprecation warnings arising from NumPy >= 2.1 by removing `newshape` argument from `numpy.reshape` by @phinate in https://github.com/wandb/wandb/pull/8167
+- Skip uploading/downloading GCS reference artifact manifest entries corresponding to folders (@amusipatla-wandb in https://github.com/wandb/wandb/pull/8084)
+
+### Deprecated
+- Ability to disable the service process (`WANDB__DISABLE_SERVICE`) is deprecated and will be removed in the next minor release (@kptkin in https://github.com/wandb/wandb/pull/8193)
 
 ## [0.17.7] - 2024-08-15
 

@@ -18,6 +18,7 @@ import threading
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import wandb
+from wandb.sdk.lib import import_hooks
 
 from . import wandb_manager, wandb_settings
 from .lib import config_util, server, tracelog
@@ -268,6 +269,8 @@ class _WandbSetup__WandbSetup:  # noqa: N801
                     self._config = config_dict
 
     def _teardown(self, exit_code: Optional[int] = None) -> None:
+        import_hooks.unregister_all_post_import_hooks()
+
         if not self._manager:
             return
 
@@ -278,7 +281,7 @@ class _WandbSetup__WandbSetup:  # noqa: N801
             sys.exit(internal_exit_code)
 
     def _setup_manager(self) -> None:
-        if self._settings._disable_service:
+        if self._settings._noop or self._settings._disable_service:
             return
         self._manager = wandb_manager._Manager(settings=self._settings)
 

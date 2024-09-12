@@ -14,7 +14,7 @@ import (
 	"github.com/wandb/wandb/core/internal/sparselist"
 	"github.com/wandb/wandb/core/internal/terminalemulator"
 	"github.com/wandb/wandb/core/pkg/observability"
-	"github.com/wandb/wandb/core/pkg/service"
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 	"golang.org/x/time/rate"
 )
 
@@ -39,6 +39,9 @@ type Sender struct {
 
 	logger    *observability.CoreLogger
 	extraWork runwork.ExtraWork
+
+	// captureEnabled indicates whether to capture console output.
+	captureEnabled bool
 }
 
 type Params struct {
@@ -95,7 +98,6 @@ func New(params Params) *Sender {
 
 	writer := NewDebouncedWriter(
 		rate.NewLimiter(rate.Every(10*time.Millisecond), 1),
-		params.ExtraWork.BeforeEndCtx(),
 		func(lines sparselist.SparseList[*RunLogsLine]) {
 			if fileWriter != nil {
 				fileWriter.WriteToFile(lines)
@@ -125,9 +127,10 @@ func New(params Params) *Sender {
 
 		consoleOutputFile: params.ConsoleOutputFile,
 
-		writer:    writer,
-		logger:    params.Logger,
-		extraWork: params.ExtraWork,
+		writer:         writer,
+		logger:         params.Logger,
+		extraWork:      params.ExtraWork,
+		captureEnabled: params.Settings.IsConsoleCaptureEnabled(),
 	}
 }
 
@@ -136,16 +139,21 @@ func New(params Params) *Sender {
 // It must run before the filestream is closed.
 func (s *Sender) Finish() {
 	s.writer.Wait()
-	s.uploadOutputFile()
+	if s.captureEnabled {
+		s.uploadOutputFile()
+	}
 }
 
 // StreamLogs saves captured console logs with the run.
-func (s *Sender) StreamLogs(record *service.OutputRawRecord) {
+func (s *Sender) StreamLogs(record *spb.OutputRawRecord) {
+	if !s.captureEnabled {
+		return
+	}
 	switch record.OutputType {
-	case service.OutputRawRecord_STDOUT:
+	case spb.OutputRawRecord_STDOUT:
 		s.stdoutTerm.Write(record.Line)
 
-	case service.OutputRawRecord_STDERR:
+	case spb.OutputRawRecord_STDERR:
 		s.stderrTerm.Write(record.Line)
 
 	default:
@@ -158,17 +166,20 @@ func (s *Sender) StreamLogs(record *service.OutputRawRecord) {
 
 // uploadOutputFile uploads the console output file that we created.
 func (s *Sender) uploadOutputFile() {
-	s.extraWork.AddRecord(
-		&service.Record{
-			RecordType: &service.Record_Files{
-				Files: &service.FilesRecord{
-					Files: []*service.FilesItem{
-						{
-							Path: string(s.consoleOutputFile),
-							Type: service.FilesItem_WANDB,
+	s.extraWork.AddWork(
+		runwork.WorkFromRecord(
+			&spb.Record{
+				RecordType: &spb.Record_Files{
+					Files: &spb.FilesRecord{
+						Files: []*spb.FilesItem{
+							{
+								Path: string(s.consoleOutputFile),
+								Type: spb.FilesItem_WANDB,
+							},
 						},
 					},
 				},
 			},
-		})
+		),
+	)
 }

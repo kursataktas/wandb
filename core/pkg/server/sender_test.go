@@ -14,7 +14,7 @@ import (
 	"github.com/wandb/wandb/core/internal/watchertest"
 	"github.com/wandb/wandb/core/pkg/observability"
 	"github.com/wandb/wandb/core/pkg/server"
-	"github.com/wandb/wandb/core/pkg/service"
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -44,10 +44,10 @@ const validCreateArtifactResponse = `{
 	}
 }`
 
-func makeSender(client graphql.Client, recordChan chan *service.Record, resultChan chan *service.Result) *server.Sender {
+func makeSender(client graphql.Client, recordChan chan *spb.Record, resultChan chan *spb.Result) *server.Sender {
 	runWork := runworktest.New()
 	logger := observability.NewNoOpLogger()
-	settings := wbsettings.From(&service.Settings{
+	settings := wbsettings.From(&spb.Settings{
 		RunId: &wrapperspb.StringValue{Value: "run1"},
 	})
 	backend := server.NewBackend(logger, settings)
@@ -91,14 +91,14 @@ func TestSendRun(t *testing.T) {
 		gqlmock.WithOpName("UpsertBucket"),
 		validUpsertBucketResponse,
 	)
-	outChan := make(chan *service.Result, 1)
-	sender := makeSender(mockGQL, make(chan *service.Record, 1), outChan)
+	outChan := make(chan *spb.Result, 1)
+	sender := makeSender(mockGQL, make(chan *spb.Record, 1), outChan)
 
-	run := &service.Record{
-		RecordType: &service.Record_Run{
-			Run: &service.RunRecord{
-				Config: &service.ConfigRecord{
-					Update: []*service.ConfigItem{
+	run := &spb.Record{
+		RecordType: &spb.Record_Run{
+			Run: &spb.RunRecord{
+				Config: &spb.ConfigRecord{
+					Update: []*spb.ConfigItem{
 						{
 							Key:       "_wandb",
 							ValueJson: "{}",
@@ -108,7 +108,7 @@ func TestSendRun(t *testing.T) {
 				Project: "testProject",
 				Entity:  "testEntity",
 			}},
-		Control: &service.Control{
+		Control: &spb.Control{
 			MailboxSlot: "junk",
 		},
 	}
@@ -129,15 +129,15 @@ func TestSendRun(t *testing.T) {
 // Verify that arguments are properly passed through to graphql
 func TestSendLinkArtifact(t *testing.T) {
 	mockGQL := gqlmock.NewMockClient()
-	outChan := make(chan *service.Result, 1)
-	sender := makeSender(mockGQL, make(chan *service.Record, 1), outChan)
+	outChan := make(chan *spb.Result, 1)
+	sender := makeSender(mockGQL, make(chan *spb.Record, 1), outChan)
 
 	// 1. When both clientId and serverId are sent, serverId is used
-	linkArtifact := &service.Record{
-		RecordType: &service.Record_Request{
-			Request: &service.Request{
-				RequestType: &service.Request_LinkArtifact{
-					LinkArtifact: &service.LinkArtifactRequest{
+	linkArtifact := &spb.Record{
+		RecordType: &spb.Record_Request{
+			Request: &spb.Request{
+				RequestType: &spb.Request_LinkArtifact{
+					LinkArtifact: &spb.LinkArtifactRequest{
 						ClientId:         "clientId",
 						ServerId:         "serverId",
 						PortfolioName:    "portfolioName",
@@ -147,7 +147,7 @@ func TestSendLinkArtifact(t *testing.T) {
 				},
 			},
 		},
-		Control: &service.Control{
+		Control: &spb.Control{
 			MailboxSlot: "junk",
 		},
 	}
@@ -172,11 +172,11 @@ func TestSendLinkArtifact(t *testing.T) {
 		requests[0])
 
 	// 2. When only clientId is sent, clientId is used
-	linkArtifact = &service.Record{
-		RecordType: &service.Record_Request{
-			Request: &service.Request{
-				RequestType: &service.Request_LinkArtifact{
-					LinkArtifact: &service.LinkArtifactRequest{
+	linkArtifact = &spb.Record{
+		RecordType: &spb.Record_Request{
+			Request: &spb.Request{
+				RequestType: &spb.Request_LinkArtifact{
+					LinkArtifact: &spb.LinkArtifactRequest{
 						ClientId:         "clientId",
 						ServerId:         "",
 						PortfolioName:    "portfolioName",
@@ -208,11 +208,11 @@ func TestSendLinkArtifact(t *testing.T) {
 		requests[1])
 
 	// 3. When only serverId is sent, serverId is used
-	linkArtifact = &service.Record{
-		RecordType: &service.Record_Request{
-			Request: &service.Request{
-				RequestType: &service.Request_LinkArtifact{
-					LinkArtifact: &service.LinkArtifactRequest{
+	linkArtifact = &spb.Record{
+		RecordType: &spb.Record_Request{
+			Request: &spb.Request{
+				RequestType: &spb.Request_LinkArtifact{
+					LinkArtifact: &spb.LinkArtifactRequest{
 						ClientId:         "",
 						ServerId:         "serverId",
 						PortfolioName:    "portfolioName",
@@ -246,11 +246,11 @@ func TestSendLinkArtifact(t *testing.T) {
 
 func TestSendUseArtifact(t *testing.T) {
 	mockGQL := gqlmock.NewMockClient()
-	sender := makeSender(mockGQL, make(chan *service.Record, 1), make(chan *service.Result, 1))
+	sender := makeSender(mockGQL, make(chan *spb.Record, 1), make(chan *spb.Result, 1))
 
-	useArtifact := &service.Record{
-		RecordType: &service.Record_UseArtifact{
-			UseArtifact: &service.UseArtifactRecord{
+	useArtifact := &spb.Record{
+		RecordType: &spb.Record_UseArtifact{
+			UseArtifact: &spb.UseArtifactRecord{
 				Id:      "artifactId",
 				Type:    "job",
 				Name:    "artifactName",
@@ -262,19 +262,19 @@ func TestSendUseArtifact(t *testing.T) {
 	sender.SendRecord(useArtifact)
 
 	// verify doesn't panic if partial job is broken
-	useArtifact = &service.Record{
-		RecordType: &service.Record_UseArtifact{
-			UseArtifact: &service.UseArtifactRecord{
+	useArtifact = &spb.Record{
+		RecordType: &spb.Record_UseArtifact{
+			UseArtifact: &spb.UseArtifactRecord{
 				Id:   "artifactId",
 				Type: "job",
 				Name: "artifactName",
-				Partial: &service.PartialJobArtifact{
+				Partial: &spb.PartialJobArtifact{
 					JobName: "jobName",
-					SourceInfo: &service.JobSource{
+					SourceInfo: &spb.JobSource{
 						SourceType: "repo",
-						Source: &service.Source{
-							Git: &service.GitSource{
-								GitInfo: &service.GitInfo{
+						Source: &spb.Source{
+							Git: &spb.GitSource{
+								GitInfo: &spb.GitInfo{
 									Commit: "commit",
 									Remote: "remote",
 								},
@@ -290,48 +290,85 @@ func TestSendUseArtifact(t *testing.T) {
 
 // Verify that arguments are properly passed through to graphql
 func TestSendArtifact(t *testing.T) {
-	mockGQL := gqlmock.NewMockClient()
-	mockGQL.StubMatchOnce(
-		gqlmock.WithOpName("CreateArtifact"),
-		validCreateArtifactResponse,
-	)
-	sender := makeSender(mockGQL, make(chan *service.Record, 1), make(chan *service.Result, 1))
-
-	// 1. When both clientId and serverId are sent, serverId is used
-	artifact := &service.Record{
-		RecordType: &service.Record_Artifact{
-			Artifact: &service.ArtifactRecord{
-				RunId:   "test-run-id",
-				Project: "test-project",
-				Entity:  "test-entity",
-				Type:    "test-type",
-				Name:    "test-artifact",
-				Digest:  "test-digest",
-				Aliases: []string{"latest"},
-				Manifest: &service.ArtifactManifest{
-					Version:       1,
-					StoragePolicy: "wandb-storage-policy-v1",
-					Contents: []*service.ArtifactManifestEntry{{
-						Path:      "test1",
-						Digest:    "test1-digest",
-						Size:      1,
-						LocalPath: "/test/local/path",
-					},
-					},
-				},
-				Finalize:         true,
-				ClientId:         "client-id",
-				SequenceClientId: "sequence-client-id",
-			}},
+	tests := []struct {
+		name string
+		tags []string
+	}{
+		{
+			name: "Received non-empty tags",
+			tags: []string{"test-tag1", "test-tag2"},
+		},
+		{
+			name: "Received empty tags",
+			tags: []string{},
+		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 
-	sender.SendRecord(artifact)
+			mockGQL := gqlmock.NewMockClient()
+			mockGQL.StubMatchOnce(
+				gqlmock.WithOpName("InputFields"),
+				`{"TypeInfo": {"inputFields": [{"name": "tags"}]}}`,
+			)
+			mockGQL.StubMatchOnce(
+				gqlmock.WithOpName("CreateArtifact"),
+				validCreateArtifactResponse,
+			)
+			sender := makeSender(mockGQL, make(chan *spb.Record, 1), make(chan *spb.Result, 1))
 
-	requests := mockGQL.AllRequests()
-	assert.Len(t, requests, 1)
-	gqlmock.AssertRequest(t,
-		gqlmock.WithVariables(
-			gqlmock.GQLVar("entityName", gomock.Eq("test-entity")),
-		),
-		requests[0])
+			// 1. When both clientId and serverId are sent, serverId is used
+			artifact := &spb.Record{
+				RecordType: &spb.Record_Artifact{
+					Artifact: &spb.ArtifactRecord{
+						RunId:   "test-run-id",
+						Project: "test-project",
+						Entity:  "test-entity",
+						Type:    "test-type",
+						Name:    "test-artifact",
+						Digest:  "test-digest",
+						Aliases: []string{"latest"},
+						Tags:    tt.tags,
+						Manifest: &spb.ArtifactManifest{
+							Version:       1,
+							StoragePolicy: "wandb-storage-policy-v1",
+							Contents: []*spb.ArtifactManifestEntry{{
+								Path:      "test1",
+								Digest:    "test1-digest",
+								Size:      1,
+								LocalPath: "/test/local/path",
+							},
+							},
+						},
+						Finalize:         true,
+						ClientId:         "client-id",
+						SequenceClientId: "sequence-client-id",
+					}},
+			}
+
+			sender.SendRecord(artifact)
+
+			requests := mockGQL.AllRequests()
+			assert.LessOrEqual(t, len(requests), 2)
+
+			// We may have had an introspection request to check for server compatibility, but
+			// CreateArtifact should still be the last request
+			createArtifactRequest := requests[len(requests)-1]
+
+			// Tags should only have been included in the request if the server supports it
+			var expectedTagsValue gomock.Matcher
+			if len(tt.tags) > 0 {
+				expectedTagsValue = gomock.Len(len(tt.tags))
+			} else {
+				expectedTagsValue = gomock.Nil()
+			}
+
+			gqlmock.AssertRequest(t,
+				gqlmock.WithVariables(
+					gqlmock.GQLVar("input.entityName", gomock.Eq("test-entity")),
+					gqlmock.GQLVar("input.tags", expectedTagsValue),
+				),
+				createArtifactRequest)
+		})
+	}
 }
