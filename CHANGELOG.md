@@ -43,6 +43,9 @@ Please add to the relevant subsections under Unreleased below on every PR where 
 - Fix `OSError` from calling `Artifact.add_file` with file paths on mounted filesystems (@tonyyli-wandb in https://github.com/wandb/wandb/pull/8473)
 - Restored compatibility for macOS versions <= 10.15 for wandb-core. (@dmitryduev in https://github.com/wandb/wandb/pull/8487)
 
+### Added
+- Add support for JWT authentication in wandb-core (@elainaRenee in https://github.com/wandb/wandb/pull/8431)
+
 ## [0.18.1] - 2024-09-16
 
 ### Fixed
