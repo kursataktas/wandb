@@ -9,10 +9,10 @@ import (
 	"github.com/wandb/wandb/core/internal/filetransfer"
 	"github.com/wandb/wandb/core/internal/gqlmock"
 	"github.com/wandb/wandb/core/internal/mailbox"
+	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/runworktest"
 	wbsettings "github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/internal/watchertest"
-	"github.com/wandb/wandb/core/pkg/observability"
 	"github.com/wandb/wandb/core/pkg/server"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -36,15 +36,7 @@ const validLinkArtifactResponse = `{
 	"linkArtifact": { "versionIndex": 0 }
 }`
 
-const validCreateArtifactResponse = `{
-	"createArtifact": {
-		"artifact": {
-			"id": "artifact-id"
-		}
-	}
-}`
-
-func makeSender(client graphql.Client, recordChan chan *spb.Record, resultChan chan *spb.Result) *server.Sender {
+func makeSender(client graphql.Client, resultChan chan *spb.Result) *server.Sender {
 	runWork := runworktest.New()
 	logger := observability.NewNoOpLogger()
 	settings := wbsettings.From(&spb.Settings{
@@ -54,7 +46,13 @@ func makeSender(client graphql.Client, recordChan chan *spb.Record, resultChan c
 	})
 	backend := server.NewBackend(logger, settings)
 	fileStream := server.NewFileStream(
-		backend, logger, observability.NewPrinter(), settings, nil)
+		backend,
+		logger,
+		nil, // operations
+		observability.NewPrinter(),
+		settings,
+		nil, // peeker
+	)
 	fileTransferManager := server.NewFileTransferManager(
 		filetransfer.NewFileTransferStats(),
 		logger,
@@ -63,6 +61,7 @@ func makeSender(client graphql.Client, recordChan chan *spb.Record, resultChan c
 	runfilesUploader := server.NewRunfilesUploader(
 		runWork,
 		logger,
+		nil, // operations
 		settings,
 		fileStream,
 		fileTransferManager,
@@ -94,7 +93,7 @@ func TestSendRun(t *testing.T) {
 		validUpsertBucketResponse,
 	)
 	outChan := make(chan *spb.Result, 1)
-	sender := makeSender(mockGQL, make(chan *spb.Record, 1), outChan)
+	sender := makeSender(mockGQL, outChan)
 
 	run := &spb.Record{
 		RecordType: &spb.Record_Run{
@@ -132,7 +131,7 @@ func TestSendRun(t *testing.T) {
 func TestSendLinkArtifact(t *testing.T) {
 	mockGQL := gqlmock.NewMockClient()
 	outChan := make(chan *spb.Result, 1)
-	sender := makeSender(mockGQL, make(chan *spb.Record, 1), outChan)
+	sender := makeSender(mockGQL, outChan)
 
 	// 1. When both clientId and serverId are sent, serverId is used
 	linkArtifact := &spb.Record{
@@ -248,7 +247,7 @@ func TestSendLinkArtifact(t *testing.T) {
 
 func TestSendUseArtifact(t *testing.T) {
 	mockGQL := gqlmock.NewMockClient()
-	sender := makeSender(mockGQL, make(chan *spb.Record, 1), make(chan *spb.Result, 1))
+	sender := makeSender(mockGQL, make(chan *spb.Result, 1))
 
 	useArtifact := &spb.Record{
 		RecordType: &spb.Record_UseArtifact{
@@ -288,89 +287,4 @@ func TestSendUseArtifact(t *testing.T) {
 		},
 	}
 	sender.SendRecord(useArtifact)
-}
-
-// Verify that arguments are properly passed through to graphql
-func TestSendArtifact(t *testing.T) {
-	tests := []struct {
-		name string
-		tags []string
-	}{
-		{
-			name: "Received non-empty tags",
-			tags: []string{"test-tag1", "test-tag2"},
-		},
-		{
-			name: "Received empty tags",
-			tags: []string{},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			mockGQL := gqlmock.NewMockClient()
-			mockGQL.StubMatchOnce(
-				gqlmock.WithOpName("InputFields"),
-				`{"TypeInfo": {"inputFields": [{"name": "tags"}]}}`,
-			)
-			mockGQL.StubMatchOnce(
-				gqlmock.WithOpName("CreateArtifact"),
-				validCreateArtifactResponse,
-			)
-			sender := makeSender(mockGQL, make(chan *spb.Record, 1), make(chan *spb.Result, 1))
-
-			// 1. When both clientId and serverId are sent, serverId is used
-			artifact := &spb.Record{
-				RecordType: &spb.Record_Artifact{
-					Artifact: &spb.ArtifactRecord{
-						RunId:   "test-run-id",
-						Project: "test-project",
-						Entity:  "test-entity",
-						Type:    "test-type",
-						Name:    "test-artifact",
-						Digest:  "test-digest",
-						Aliases: []string{"latest"},
-						Tags:    tt.tags,
-						Manifest: &spb.ArtifactManifest{
-							Version:       1,
-							StoragePolicy: "wandb-storage-policy-v1",
-							Contents: []*spb.ArtifactManifestEntry{{
-								Path:      "test1",
-								Digest:    "test1-digest",
-								Size:      1,
-								LocalPath: "/test/local/path",
-							},
-							},
-						},
-						Finalize:         true,
-						ClientId:         "client-id",
-						SequenceClientId: "sequence-client-id",
-					}},
-			}
-
-			sender.SendRecord(artifact)
-
-			requests := mockGQL.AllRequests()
-			assert.LessOrEqual(t, len(requests), 2)
-
-			// We may have had an introspection request to check for server compatibility, but
-			// CreateArtifact should still be the last request
-			createArtifactRequest := requests[len(requests)-1]
-
-			// Tags should only have been included in the request if the server supports it
-			var expectedTagsValue gomock.Matcher
-			if len(tt.tags) > 0 {
-				expectedTagsValue = gomock.Len(len(tt.tags))
-			} else {
-				expectedTagsValue = gomock.Nil()
-			}
-
-			gqlmock.AssertRequest(t,
-				gqlmock.WithVariables(
-					gqlmock.GQLVar("input.entityName", gomock.Eq("test-entity")),
-					gqlmock.GQLVar("input.tags", expectedTagsValue),
-				),
-				createArtifactRequest)
-		})
-	}
 }

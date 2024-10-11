@@ -13,6 +13,7 @@ import (
 	"github.com/wandb/wandb/core/internal/filestream"
 	"github.com/wandb/wandb/core/internal/filetransfer"
 	"github.com/wandb/wandb/core/internal/mailbox"
+	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/paths"
 	"github.com/wandb/wandb/core/internal/runfiles"
 	"github.com/wandb/wandb/core/internal/runsummary"
@@ -22,9 +23,8 @@ import (
 	"github.com/wandb/wandb/core/internal/tensorboard"
 	"github.com/wandb/wandb/core/internal/version"
 	"github.com/wandb/wandb/core/internal/watcher"
+	"github.com/wandb/wandb/core/internal/wboperation"
 	"github.com/wandb/wandb/core/pkg/monitor"
-	"github.com/wandb/wandb/core/pkg/observability"
-	"github.com/wandb/wandb/core/pkg/utils"
 
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
@@ -64,11 +64,14 @@ type Stream struct {
 	sentryClient *sentry_ext.Client
 }
 
-func streamLogger(settings *settings.Settings, sentryClient *sentry_ext.Client) *observability.CoreLogger {
+func streamLogger(
+	settings *settings.Settings,
+	sentryClient *sentry_ext.Client,
+	loggerPath string,
+) *observability.CoreLogger {
 	// TODO: when we add session concept re-do this to use user provided path
 	targetPath := filepath.Join(settings.GetLogDir(), "debug-core.log")
-	if path := defaultLoggerPath.Load(); path != nil {
-		path := path.(string)
+	if path := loggerPath; path != "" {
 		// check path exists
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			err := os.Symlink(path, targetPath)
@@ -129,20 +132,25 @@ func streamLogger(settings *settings.Settings, sentryClient *sentry_ext.Client) 
 	return logger
 }
 
+type StreamOptions struct {
+	Commit     string
+	Settings   *settings.Settings
+	Sentry     *sentry_ext.Client
+	LoggerPath string
+}
+
 // NewStream creates a new stream with the given settings and responders.
 func NewStream(
-	commit string,
-	settings *settings.Settings,
-	sentryClient *sentry_ext.Client,
+	opts StreamOptions,
 ) *Stream {
-	logger := streamLogger(settings, sentryClient)
-	runWork := runwork.New(BufferSize, logger)
+	operations := wboperation.NewOperations()
 
+	logger := streamLogger(opts.Settings, opts.Sentry, opts.LoggerPath)
 	s := &Stream{
-		runWork:      runWork,
+		runWork:      runwork.New(BufferSize, logger),
 		logger:       logger,
-		settings:     settings,
-		sentryClient: sentryClient,
+		settings:     opts.Settings,
+		sentryClient: opts.Sentry,
 	}
 
 	hostname, err := os.Hostname()
@@ -160,7 +168,7 @@ func NewStream(
 	peeker := &observability.Peeker{}
 	terminalPrinter := observability.NewPrinter()
 
-	backendOrNil := NewBackend(s.logger, settings)
+	backendOrNil := NewBackend(s.logger, opts.Settings)
 	fileTransferStats := filetransfer.NewFileTransferStats()
 	fileWatcher := watcher.New(watcher.Params{Logger: s.logger})
 	tbHandler := tensorboard.NewTBHandler(tensorboard.Params{
@@ -174,23 +182,25 @@ func NewStream(
 	var fileTransferManagerOrNil filetransfer.FileTransferManager
 	var runfilesUploaderOrNil runfiles.Uploader
 	if backendOrNil != nil {
-		graphqlClientOrNil = NewGraphQLClient(backendOrNil, settings, peeker)
+		graphqlClientOrNil = NewGraphQLClient(backendOrNil, opts.Settings, peeker)
 		fileStreamOrNil = NewFileStream(
 			backendOrNil,
 			s.logger,
+			operations,
 			terminalPrinter,
-			settings,
+			opts.Settings,
 			peeker,
 		)
 		fileTransferManagerOrNil = NewFileTransferManager(
 			fileTransferStats,
 			s.logger,
-			settings,
+			opts.Settings,
 		)
 		runfilesUploaderOrNil = NewRunfilesUploader(
 			s.runWork,
 			s.logger,
-			settings,
+			operations,
+			opts.Settings,
 			fileStreamOrNil,
 			fileTransferManagerOrNil,
 			fileWatcher,
@@ -200,13 +210,14 @@ func NewStream(
 
 	mailbox := mailbox.New()
 
-	s.handler = NewHandler(commit,
+	s.handler = NewHandler(opts.Commit,
 		HandlerParams{
 			Logger:            s.logger,
+			Operations:        operations,
 			Settings:          s.settings.Proto,
 			FwdChan:           make(chan runwork.Work, BufferSize),
 			OutChan:           make(chan *spb.Result, BufferSize),
-			SystemMonitor:     monitor.New(s.logger, s.settings.Proto, s.runWork),
+			SystemMonitor:     monitor.NewSystemMonitor(s.logger, s.settings.Proto, s.runWork),
 			TBHandler:         tbHandler,
 			FileTransferStats: fileTransferStats,
 			Mailbox:           mailbox,
@@ -223,7 +234,7 @@ func NewStream(
 	)
 
 	var outputFile *paths.RelativePath
-	if settings.Proto.GetConsoleMultipart().GetValue() {
+	if opts.Settings.Proto.GetConsoleMultipart().GetValue() {
 		// This is guaranteed not to fail.
 		outputFile, _ = paths.Relative(
 			filepath.Join(
@@ -240,6 +251,7 @@ func NewStream(
 		s.runWork,
 		SenderParams{
 			Logger:              s.logger,
+			Operations:          operations,
 			Settings:            s.settings,
 			Backend:             backendOrNil,
 			FileStream:          fileStreamOrNil,
@@ -337,9 +349,9 @@ func (s *Stream) FinishAndClose(exitCode int32) {
 	s.Close()
 
 	if s.settings.IsOffline() {
-		utils.PrintFooterOffline(s.settings.Proto)
+		PrintFooterOffline(s.settings.Proto)
 	} else {
 		run := s.handler.GetRun()
-		utils.PrintFooterOnline(run, s.settings.Proto)
+		PrintFooterOnline(run, s.settings.Proto)
 	}
 }

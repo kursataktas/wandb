@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/wandb/wandb/core/pkg/observability"
+	"github.com/wandb/wandb/core/internal/observability"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
 
@@ -17,9 +17,11 @@ type ResponderEntry struct {
 	ID        string
 }
 
+type Responders map[string]Responder
+
 type Dispatcher struct {
 	sync.RWMutex
-	responders map[string]Responder
+	responders Responders
 	logger     *observability.CoreLogger
 }
 
@@ -27,7 +29,7 @@ func NewDispatcher(logger *observability.CoreLogger) *Dispatcher {
 	return &Dispatcher{
 		RWMutex:    sync.RWMutex{},
 		logger:     logger,
-		responders: make(map[string]Responder),
+		responders: make(Responders),
 	}
 }
 

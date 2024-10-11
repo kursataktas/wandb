@@ -27,6 +27,7 @@ from wandb.apis import public
 from wandb.apis.internal import Api as InternalApi
 from wandb.apis.normalize import normalize_exceptions
 from wandb.apis.public.const import RETRY_TIMEDELTA
+from wandb.sdk.artifacts._validators import is_artifact_registry_project
 from wandb.sdk.internal.thread_local_settings import _thread_local_api_settings
 from wandb.sdk.launch.utils import LAUNCH_DEFAULT_PROJECT
 from wandb.sdk.lib import retry, runid
@@ -1111,7 +1112,11 @@ class Api:
 
     @normalize_exceptions
     def artifacts(
-        self, type_name: str, name: str, per_page: Optional[int] = 50
+        self,
+        type_name: str,
+        name: str,
+        per_page: Optional[int] = 50,
+        tags: Optional[List[str]] = None,
     ) -> "public.Artifacts":
         """Return an `Artifacts` collection from the given parameters.
 
@@ -1120,13 +1125,20 @@ class Api:
             name: (str) An artifact collection name. May be prefixed with entity/project.
             per_page: (int, optional) Sets the page size for query pagination.  None will use the default size.
                 Usually there is no reason to change this.
+            tags: (list[str], optional) Only return artifacts with all of these tags.
 
         Returns:
             An iterable `Artifacts` object.
         """
         entity, project, collection_name = self._parse_artifact_path(name)
         return public.Artifacts(
-            self.client, entity, project, collection_name, type_name, per_page=per_page
+            self.client,
+            entity,
+            project,
+            collection_name,
+            type_name,
+            per_page=per_page,
+            tags=tags,
         )
 
     @normalize_exceptions
@@ -1146,8 +1158,18 @@ class Api:
         if name is None:
             raise ValueError("You must specify name= to fetch an artifact.")
         entity, project, artifact_name = self._parse_artifact_path(name)
+
+        organization = ""
+        # If its an Registry artifact, the entity is an org instead
+        if is_artifact_registry_project(project):
+            # Update `organization` only if an organization name was provided,
+            # otherwise use the default that you already set above.
+            try:
+                organization, _, _ = name.split("/")
+            except ValueError:
+                organization = ""
         artifact = wandb.Artifact._from_name(
-            entity, project, artifact_name, self.client
+            entity, project, artifact_name, self.client, organization
         )
         if type is not None and artifact.type != type:
             raise ValueError(
