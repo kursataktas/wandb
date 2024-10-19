@@ -18,6 +18,10 @@ Please add to the relevant subsections under Unreleased below on every PR where 
 - Fix downloading azure reference artifacts with `skip_cache=True` (@amusipatla-wandb in https://github.com/wandb/wandb/pull/8706)
 - Fix multipart uploads for files with no content type defined in headers (@amusipatla-wandb in https://github.com/wandb/wandb/pull/8716)
 
+### Removed
+
+- Remove `wandb.Run.plot_table` method. The functionality is still available and should be accessed using `wandb.plot_table`, which is now the recommended way to use this feature. (@kptkin in https://github.com/wandb/wandb/pull/XXXX)
+
 ## [0.18.5] - 2024-10-17
 
 ### Fixed
