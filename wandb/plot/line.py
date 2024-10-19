@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from wandb.plot.custom_chart import CustomChart
-
 import wandb
+from wandb.plot.custom_chart import CustomChart
 
 
 def line(
