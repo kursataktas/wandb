@@ -38,7 +38,8 @@ from wandb.apis.internal import Api
 from wandb.apis.public import Api as PublicApi
 from wandb.errors import CommError
 from wandb.integration.torch import wandb_torch
-from wandb.plot.viz import CustomChart, Visualize, custom_chart
+from wandb.plot.custom_chart import CustomChart
+from wandb.plot.viz import Visualize, plot_table
 from wandb.proto.wandb_internal_pb2 import (
     MetricRecord,
     PollExitResponse,
@@ -2259,7 +2260,7 @@ class Run:
             split_table: a boolean that indicates whether the table should be in
                 a separate section in the UI
         """
-        return custom_chart(
+        return plot_table(
             vega_spec_name, data_table, fields, string_fields or {}, split_table
         )
 
