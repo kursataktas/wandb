@@ -2245,7 +2245,7 @@ class Run:
         data_table: Table,
         fields: dict[str, Any],
         string_fields: dict[str, Any] | None = None,
-        split_table: bool | None = False,
+        split_table: bool = False,
     ) -> CustomChart:
         """Create a custom plot on a table.
 
