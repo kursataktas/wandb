@@ -10,16 +10,17 @@ import wandb
 from torch.utils.tensorboard import SummaryWriter
 
 
-@pytest.mark.skip_wandb_core(
-    feature="tensorboard", reason="hangs on processing tensorboard data"
-)
 def test_add_scalar(wandb_init, relay_server):
     """Test adding a scalar to TensorBoard and syncing it to W&B."""
 
     with relay_server() as relay:
         with wandb_init(sync_tensorboard=True), SummaryWriter() as writer:
             for i in range(100):
-                writer.add_scalar("y=2x", i * 2, i)
+                writer.add_scalars(
+                    "y=2x",
+                    {"y=2x": i * 2},
+                    i,
+                )
 
         run_ids = relay.context.get_run_ids()
         assert len(run_ids) == 1
